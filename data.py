@@ -1,15 +1,18 @@
+import time
 import requests
 import os
 import zipfile
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, functions as F
 from dotenv import load_dotenv
 
 load_dotenv()
 
 google_credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
 dataset = os.getenv('DATASET_NAME')
-table_name = os.getenv('TABLE_NAME')
-
+raw_table_name = os.getenv('RAW_TABLE_NAME')
+actors_table_name = os.getenv('ACTORS_TABLE_NAME')
+directors_table_name = os.getenv('DIRECTORS_TABLE_NAME')
+producers_table_name = os.getenv('PRODUCERS_TABLE_NAME')
 
 # Define the source and destination
 url = "https://www.kaggle.com/api/v1/datasets/download/alanvourch/tmdb-movies-daily-updates"
@@ -51,19 +54,75 @@ spark = SparkSession.builder \
 # Verify the connection
 print(f"Spark version: {spark.version}")
 
-df = spark.read.option("header", "true").csv("/Users/noahbrannon/Python/Movies/Data/TMDB_all_movies.csv")
+main_df = spark.read.option("header", "true").csv("./Data/TMDB_all_movies.csv")
 
+starttime = time.time()
 
 def ingest_to_bigquery(df, table_name):
     df.write \
         .format("bigquery") \
         .option("writeMethod", "direct") \
+        .option("credentialsFile", google_credentials_path) \
         .option("table", f"{dataset}.{table_name}") \
+        .option("batchsize", "50000") \
         .mode("overwrite") \
         .save()
 
 
-ingest_to_bigquery(df, table_name)
+def actors_table_to_bgq(df, dataset, table_name):
+    actors_df = (
+        df.select(F.explode(F.split(F.col("cast"), ", ")).alias("actor"))
+          .distinct()
+    )
 
-spark.stop
-print("Stoped spark")
+    actors_df.write \
+        .format("bigquery") \
+        .option("writeMethod", "direct") \
+        .option("credentialsFile", google_credentials_path) \
+        .option("table", f"{dataset}.{table_name}") \
+        .option("batchsize", "50000") \
+        .mode("overwrite") \
+        .save()
+
+def producers_table_to_bgq(df, dataset, table_name):
+    producers_df = (
+        df.select(F.explode(F.split(F.col("producers"), ", ")).alias("producer"))
+          .distinct()
+    )
+
+    producers_df.write \
+        .format("bigquery") \
+        .option("writeMethod", "direct") \
+        .option("credentialsFile", google_credentials_path) \
+        .option("table", f"{dataset}.{table_name}") \
+        .option("batchsize", "50000") \
+        .mode("overwrite") \
+        .save()
+
+def directors_table_to_bgq(df, dataset, table_name):
+    directors_df = (
+        df.select(F.explode(F.split(F.col("director"), ", ")).alias("director"))
+          .distinct()
+    )
+
+    directors_df.write \
+        .format("bigquery") \
+        .option("writeMethod", "direct") \
+        .option("credentialsFile", google_credentials_path) \
+        .option("table", f"{dataset}.{table_name}") \
+        .option("batchsize", "50000") \
+        .mode("overwrite") \
+        .save()
+
+
+ingest_to_bigquery(main_df, raw_table_name)
+actors_table_to_bgq(main_df, dataset, actors_table_name)
+producers_table_to_bgq(main_df, dataset, producers_table_name)
+directors_table_to_bgq(main_df, dataset, directors_table_name)
+
+endingtime = time.time()
+total_time = endingtime - starttime
+print(f"Total time taken to ingest data: {total_time} seconds")
+
+spark.stop()
+print("Stopped spark")
