@@ -71,8 +71,7 @@ def ingest_to_bigquery(df, table_name):
 
 def actors_table_to_bgq(df, dataset, table_name):
     actors_df = (
-        df.select(F.explode(F.split(F.col("cast"), ", ")).alias("actor"))
-          .distinct()
+        df.select("id",F.explode(F.split(F.col("cast"), ", ")).alias("actor"))
     )
 
     actors_df.write \
@@ -86,8 +85,7 @@ def actors_table_to_bgq(df, dataset, table_name):
 
 def producers_table_to_bgq(df, dataset, table_name):
     producers_df = (
-        df.select(F.explode(F.split(F.col("producers"), ", ")).alias("producer"))
-          .distinct()
+        df.select("id", F.explode(F.split(F.col("producers"), ", ")).alias("producer"))
     )
 
     producers_df.write \
@@ -101,8 +99,7 @@ def producers_table_to_bgq(df, dataset, table_name):
 
 def directors_table_to_bgq(df, dataset, table_name):
     directors_df = (
-        df.select(F.explode(F.split(F.col("director"), ", ")).alias("director"))
-          .distinct()
+        df.select("id", F.explode(F.split(F.col("director"), ", ")).alias("director"))
     )
 
     directors_df.write \
@@ -116,9 +113,16 @@ def directors_table_to_bgq(df, dataset, table_name):
 
 
 ingest_to_bigquery(main_df, raw_table_name)
+print(f"Ingested raw data to BigQuery table: {dataset}.{raw_table_name}")
+
 actors_table_to_bgq(main_df, dataset, actors_table_name)
+print(f"Ingested actors data to BigQuery table: {dataset}.{actors_table_name}")
+
 producers_table_to_bgq(main_df, dataset, producers_table_name)
+print(f"Ingested producers data to BigQuery table: {dataset}.{producers_table_name}")
+
 directors_table_to_bgq(main_df, dataset, directors_table_name)
+print(f"Ingested directors data to BigQuery table: {dataset}.{directors_table_name}")
 
 endingtime = time.time()
 total_time = endingtime - starttime
