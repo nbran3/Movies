@@ -16,6 +16,6 @@ star_flag as (
     left join stars s on lower(mc.person_name) = s.name
 )
 
-select movie_id, max(is_known_star) as has_star_actor
+select movie_id, sum(is_known_star) as star_actor_count
 from star_flag
 group by movie_id

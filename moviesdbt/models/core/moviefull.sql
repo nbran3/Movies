@@ -17,5 +17,7 @@ select
     genres,
     production_companies,
     production_countries,
+    original_language,
+    
     status
 from raw_data
