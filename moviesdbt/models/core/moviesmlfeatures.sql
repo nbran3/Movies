@@ -44,15 +44,13 @@ season_release as (
 studio_metrics as (
     select
         mf.movie_id,
-        avg(sf.studio_flop_rate)      as studio_flop_rate,
-        max(sf.movie_count)           as studio_movie_count,
-        max(sf.avg_movies_per_year)   as studio_avg_movies_per_year
+        max(sf.is_major_studio) as has_major_studio,
+        max(sf.is_top_10_studio) as has_top_10_studio,
+        max(sf.movie_count) as max_studio_movie_count
     from moviefull mf
     cross join unnest(split(mf.production_companies, ',')) as studio
     join {{ ref('studio_fact') }} sf
-        on trim(studio) = sf.studio
-        and length(trim(studio)) < 100
-        and trim(studio) != ''
+        on lower(regexp_replace(trim(studio), r'\s+', ' ')) = sf.studio_key
     group by mf.movie_id
 ),
 
@@ -105,9 +103,9 @@ select
     ge.is_thriller,
     ge.is_war,
     ge.is_western,
-    sm.studio_flop_rate,
-    sm.studio_movie_count,
-    sm.studio_avg_movies_per_year
+    coalesce(sm.has_major_studio, 0) as has_major_studio,
+    coalesce(sm.has_top_10_studio, 0) as has_top_10_studio,
+    coalesce(sm.max_studio_movie_count, 0) as max_studio_movie_count
 from moviefull as mf
 join movie_performance as mp on mf.movie_id = mp.movie_id
 left join is_star as s on mf.movie_id = s.movie_id
